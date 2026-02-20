@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anand Ravishankar | Diffusion & Continual Learning</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0a0a0c;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #ff3e6c; 
+            --glass-bg: rgba(20, 20, 25, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Inter', sans-serif; overflow-x: hidden; }
+
+        #webgl-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+
+        nav {
+            position: fixed; top: 0; width: 100%;
+            background: rgba(10, 10, 12, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border); z-index: 1000; padding: 15px 0;
+        }
+        .nav-container { max-width: 1100px; margin: 0 auto; padding: 0 5%; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-main); text-decoration: none; font-size: 1.1rem; }
+        .nav-logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 25px; }
+        .nav-links a { color: var(--text-main); text-decoration: none; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; transition: color 0.3s; }
+        .nav-links a:hover { color: var(--accent); }
+
+        /* HUD */
+        #diffusion-hud {
+            position: fixed; bottom: 30px; left: 30px; z-index: 100;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--accent);
+            background: var(--glass-bg); padding: 15px; border: 1px solid var(--accent);
+            border-radius: 8px; backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(255, 62, 108, 0.15);
+        }
+
+        .layout { max-width: 1100px; margin: 0 auto; padding: 0 5%; position: relative; z-index: 1; }
+        section { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 100px 0; }
+
+        h1 { font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; line-height: 1.1; margin-bottom: 20px; letter-spacing: -1px; }
+        h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 400; margin-bottom: 40px; color: var(--accent); display: inline-block; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; }
+        p { font-size: 1.1rem; line-height: 1.8; color: var(--text-muted); margin-bottom: 20px; max-width: 650px; }
+
+        .glass-card { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-radius: 12px; padding: 35px; }
+        
+        .pub-grid { display: flex; flex-direction: column; gap: 20px; }
+        .pub-card { display: block; text-decoration: none; color: inherit; padding: 25px; border: 1px solid var(--glass-border); border-radius: 8px; background: rgba(255, 255, 255, 0.02); transition: 0.3s; }
+        .pub-card:hover { border-color: var(--accent); background: rgba(255, 62, 108, 0.05); transform: translateX(10px); }
+        .pub-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--accent); margin-bottom: 8px; display: block; }
+        .pub-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 10px; color: var(--text-main); }
+        .pub-authors { font-size: 0.95rem; color: var(--text-muted); }
+
+        .timeline-item { border-left: 2px solid var(--glass-border); padding-left: 25px; margin-bottom: 40px; position: relative; }
+        .timeline-item::before { content: ''; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+        .timeline-item h3 { font-size: 1.3rem; margin-bottom: 5px; }
+        .timeline-item h4 { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px; }
+
+        .contact-row { display: flex; align-items: center; gap: 20px; margin-bottom: 15px; font-size: 1.1rem; }
+        .contact-label { font-family: 'JetBrains Mono', monospace; color: var(--accent); width: 100px; font-size: 0.9rem; }
+        .contact-value { color: var(--text-main); text-decoration: none; transition: 0.2s; }
+        .contact-value:hover { color: var(--accent); }
+
+        .gsap-reveal { opacity: 0; transform: translateY(30px); }
+        
+        /* Loading text for the Pokémon */
+        #loading-text { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'JetBrains Mono', monospace; color: var(--accent); z-index: -1; font-size: 1.2rem; transition: opacity 0.5s; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-text">Fetching Random Manifold Data...</div>
+
+    <!-- <div id="diffusion-hud">
+        <div id="target-name">Target: Unknown Entity</div>
+        <div>Time Step (t): <span id="time-step">T</span></div>
+        <div>Noise Level (σ): <span id="noise-level">1.000</span></div>
+        <div style="margin-top: 5px; font-size: 0.7rem; color: var(--text-muted);">Scroll to denoise manifold</div>
+    </div> -->
+
+    <nav>
+        <div class="nav-container">
+            <a href="#home" class="nav-logo">Anand<span>.</span></a>
+            <div class="nav-links">
+                <a href="#about">About</a>
+                <a href="#publications">Publications</a>
+                <a href="#experience">Experience</a>
+                <a href="#contact">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <div id="webgl-container"></div>
+
+    <div class="layout">
+        <section id="home">
+            <div class="gsap-reveal">
+                <p style="font-family: 'JetBrains Mono', monospace; color: var(--accent); margin-bottom: 15px;">$ init_research_profile()</p>
+                <h1>Anand<br>Ravishankar</h1>
+                <!-- <p style="font-size: 1.25rem; max-width: 600px;">
+                    PhD Candidate at the Electrical and Computer Engineering Department at Stony Brook University
+                </p> -->
+            </div>
+        </section>
+
+        <section id="about">
+            <h2 class="gsap-reveal">01. Background & Expertise</h2>
+            <div class="glass-card gsap-reveal">
+                <p>I am currently a PhD Candidate in Computer Engineering at Stony Brook University. My research exists at the intersection of generative modeling and sequential decision-making. I focus heavily on adapting diffusion models for lifelong learning scenarios, ensuring networks can reconstruct complex data distributions sequentially without catastrophic forgetting.</p>
+                <!-- <p>Before entering academia full-time, I worked as a Cloud Engineer at Amazon Web Services (AWS) in Bangalore. There, I engineered scalable infrastructure, building automated metric visualization pipelines in SageMaker to optimize machine learning experiment tracking for support engineers.</p> -->
+                
+                <div style="margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                    <span style="background: rgba(255, 62, 108, 0.1); color: var(--accent); padding: 6px 15px; border-radius: 4px;">Diffusion Models (DDPM)</span>
+                    <span style="background: rgba(255, 62, 108, 0.1); color: var(--accent); padding: 6px 15px; border-radius: 4px;">Continual Learning</span>
+                    <span style="background: rgba(255, 62, 108, 0.1); color: var(--accent); padding: 6px 15px; border-radius: 4px;">Bayesian Optimization</span>
+                    <span style="background: rgba(255, 62, 108, 0.1); color: var(--accent); padding: 6px 15px; border-radius: 4px;">PyTorch / JAX</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="publications">
+            <h2 class="gsap-reveal">02. Selected Publications</h2>
+            <div class="pub-grid">
+                <a href="#" target="_blank" class="pub-card gsap-reveal">
+                    <span class="pub-meta">ICASSP 2026 [In Print]</span>
+                    <h3 class="pub-title">Continual Time Series Forecasting with Diffusion models under Functional Regularization</h3>
+                    <p class="pub-authors">A. Ravishankar, P. Djuric</p>
+                </a>
+                <a href="https://ieeexplore.ieee.org/document/11226629" target="_blank" class="pub-card gsap-reveal">
+                    <span class="pub-meta">EUSIPCO 2025 • IEEE Explore</span>
+                    <h3 class="pub-title">Improvement-Based Acquisition Functions for Level Set Estimation</h3>
+                    <p class="pub-authors">A. Ravishankar, F. Llorente, P. Djuric</p>
+                </a>
+                <a href="https://arxiv.org/abs/2509.05877" target="_blank" class="pub-card gsap-reveal">
+                    <span class="pub-meta">EUSIPCO 2025 • Arxiv</span>
+                    <h3 class="pub-title">Uncertainty Quantification in Probabilistic Machine Learning Models: Theory, Methods, and Insights</h3>
+                    <p class="pub-authors">M. Ajirak, A. Ravishankar, P. Djuric</p>
+                </a>
+                <a href="https://ieeexplore.ieee.org/document/10890671" target="_blank" class="pub-card gsap-reveal">
+                    <span class="pub-meta">ICASSP 2025 • IEEE Explore</span>
+                    <h3 class="pub-title">Adaptive Acquisition in Bayesian Optimization with Agnostic Ensemble</h3>
+                    <p class="pub-authors">A. Ravishankar, F. Llorente, P. Djuric</p>
+                </a>
+                <a href="https://neurips.cc/virtual/2024/98969" target="_blank" class="pub-card gsap-reveal">
+                    <span class="pub-meta">NeurIPS Workshop 2024 • OpenReview</span>
+                    <h3 class="pub-title">Ensemble Mashups: A Simple Recipe for Better Bayesian Optimization</h3>
+                    <p class="pub-authors">A. Ravishankar, F. Llorente, Y. Song, P. Djuric</p>
+                </a>
+            </div>
+        </section>
+
+        <section id="experience">
+            <h2 class="gsap-reveal">03. Experience</h2>
+            <div>
+                <div class="timeline-item gsap-reveal">
+                    <h3>Research Assistant</h3>
+                    <h4>Stony Brook University | May 2023 - Current</h4>
+                    <p>Published extensive research in leading venues. Collaborated closely with the Neurosurgical department at Stony Brook Hospital, applying probabilistic deep learning to analyze cranium and heart signals.</p>
+                </div>                
+                <div class="timeline-item gsap-reveal">
+                    <h3>MS in Computer Engineering</h3>
+                    <h4>Stony Brook University | Aug 2022 - May 2024</h4>
+                    <!-- <p>Graduated with a 3.89/4.0 GPA, establishing a strong mathematical foundation in Machine Learning and algorithms.</p> -->
+                </div>
+                <div class="timeline-item gsap-reveal">
+                    <h3>Cloud Engineer</h3>
+                    <h4>Amazon Web Services (AWS) | Feb 2021 - June 2022</h4>
+                    <p>Automated metrics visualization pipelines in SageMaker Studio. Built TamperMonkey-DynamoDB integrations to reconstruct cluster configurations</p>
+                </div>
+
+            </div>
+        </section>
+
+        <section id="contact">
+            <h2 class="gsap-reveal">04. Terminal / Contact</h2>
+            <div class="glass-card gsap-reveal">
+                <div class="contact-row">
+                    <span class="contact-label">Email_</span>
+                    <span class="contact-value">anand.ravishankar@stonybrook.edu</span>
+                </div>
+                <div class="contact-row">
+                    <span class="contact-label">LinkedIn_</span>
+                    <a href="https://linkedin.com/in/anand-ravishankar" target="_blank" class="contact-value">linkedin.com/in/anand-ravishankar</a>
+                </div>
+                <div class="contact-row">
+                    <span class="contact-label">GitHub_</span>
+                    <a href="https://github.com/anand-12" target="_blank" class="contact-value">github.com/anand-12</a>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0a0c, 0.001);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 0, 800);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        let points = null;
+        let noisePositions = null;
+        let targetPositions = null;
+        let particlesCount = 0;
+
+        // Fetch a random Pokémon Image data
+        async function loadPokemonManifold() {
+            // Get a random Pokemon ID (Gen 1-5 to ensure solid pixel art sprites)
+            const randomId = Math.floor(Math.random() * 649) + 1; 
+            
+            try {
+                // Fetch the Pokemon name for the HUD
+                const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
+                const data = await response.json();
+                // document.getElementById('target-name').textContent = `Target: ${data.name.toUpperCase()}`;
+
+                // Fetch the sprite (Using the official artwork for better particle density)
+                const imgUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${randomId}.png`;
+                
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // Required to read pixel data from external URL
+                
+                img.onload = () => {
+                    document.getElementById('loading-text').style.opacity = '0';
+                    processImageToParticles(img);
+                };
+                img.src = imgUrl;
+
+            } catch (e) {
+                console.error("Failed to load Pokemon, falling back...", e);
+                document.getElementById('loading-text').textContent = "Connection failed. Please refresh.";
+            }
+        }
+
+        function processImageToParticles(img) {
+            // Create a temporary canvas to read the image pixels
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Downscale the image slightly so we don't crash the browser with too many particles
+            const size = 120; 
+            canvas.width = size;
+            canvas.height = size;
+            
+            ctx.drawImage(img, 0, 0, size, size);
+            const imageData = ctx.getImageData(0, 0, size, size).data;
+
+            const validPixels = [];
+
+            // Read every pixel (RGBA)
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const index = (y * size + x) * 4;
+                    const r = imageData[index];
+                    const g = imageData[index + 1];
+                    const b = imageData[index + 2];
+                    const a = imageData[index + 3];
+
+                    // If the pixel is not transparent, save it
+                    if (a > 20) {
+                        validPixels.push({ x, y, r, g, b });
+                    }
+                }
+            }
+
+            particlesCount = validPixels.length;
+            const geometry = new THREE.BufferGeometry();
+            
+            noisePositions = new Float32Array(particlesCount * 3);
+            targetPositions = new Float32Array(particlesCount * 3);
+            const currentPositions = new Float32Array(particlesCount * 3);
+            const colors = new Float32Array(particlesCount * 3);
+
+            // The scale of the Pokemon in the 3D space
+            const spreadScale = 7; 
+
+            for (let i = 0; i < particlesCount; i++) {
+                const i3 = i * 3;
+                const pixel = validPixels[i];
+
+                // Target Position (The Pokemon)
+                // We offset by size/2 to center the image, and invert Y because Canvas Y goes down but WebGL Y goes up
+                targetPositions[i3] = (pixel.x - size / 2) * spreadScale;
+                targetPositions[i3 + 1] = -(pixel.y - size / 2) * spreadScale + 150; // Offset Y slightly up
+                targetPositions[i3 + 2] = (Math.random() - 0.5) * 20; // Slight depth variance to make it 3D
+
+                // Pure Noise Position (Gaussian spread)
+                noisePositions[i3] = (Math.random() - 0.5) * 2500;
+                noisePositions[i3 + 1] = (Math.random() - 0.5) * 2500;
+                noisePositions[i3 + 2] = (Math.random() - 0.5) * 2500;
+
+                // Start at Noise
+                currentPositions[i3] = noisePositions[i3];
+                currentPositions[i3 + 1] = noisePositions[i3 + 1];
+                currentPositions[i3 + 2] = noisePositions[i3 + 2];
+
+                // Set Color to match the Pokemon pixel
+                colors[i3] = pixel.r / 255;
+                colors[i3 + 1] = pixel.g / 255;
+                colors[i3 + 2] = pixel.b / 255;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(currentPositions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 4, vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending
+            });
+
+            points = new THREE.Points(geometry, material);
+            scene.add(points);
+        }
+
+        loadPokemonManifold();
+
+        // Track Scroll for Diffusion Time Step
+        let scrollProgress = 0;
+        let targetScrollProgress = 0;
+        
+        window.addEventListener('scroll', () => {
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            // Add a small buffer so it fully forms before the absolute bottom
+            targetScrollProgress = Math.min((window.scrollY / maxScroll) * 1.2, 1.0); 
+        });
+
+        let mouseX = 0; let mouseY = 0;
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - window.innerWidth / 2) * 0.3;
+            mouseY = (event.clientY - window.innerHeight / 2) * 0.3;
+        });
+
+        // const timeStepEl = document.getElementById('time-step');
+        // const noiseLevelEl = document.getElementById('noise-level');
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (points) {
+                // Smooth interpolation for scroll speed
+                scrollProgress += (targetScrollProgress - scrollProgress) * 0.05;
+
+                const positions = points.geometry.attributes.position.array;
+                
+                // Interpolate from Noise to Pokemon based on scroll
+                for (let i = 0; i < particlesCount * 3; i++) {
+                    positions[i] = noisePositions[i] * (1 - scrollProgress) + targetPositions[i] * scrollProgress;
+                }
+                points.geometry.attributes.position.needsUpdate = true;
+
+                // Update HUD Text
+                // timeStepEl.textContent = Math.floor((1 - scrollProgress) * 1000);
+                // noiseLevelEl.textContent = Math.max(0, 1 - scrollProgress).toFixed(3);
+
+                // Slight continuous rotation of the pokemon
+                points.rotation.y = Math.sin(Date.now() * 0.0005) * 0.2;
+            }
+            
+            // Camera Parallax
+            camera.position.x += (mouseX - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // GSAP
+        gsap.registerPlugin(ScrollTrigger);
+        document.querySelectorAll('.gsap-reveal').forEach((el) => {
+            gsap.to(el, {
+                scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none reverse" },
+                opacity: 1, y: 0, duration: 0.8, ease: "power2.out"
+            });
+        });
+    </script>
+</body>
+</html>
