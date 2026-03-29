@@ -1,0 +1,72 @@
+body {
+    font-family: "Georgia", "Times New Roman", serif;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    line-height: 1.6;
+}
+
+/* Container */
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 10px;
+}
+
+/* Top section */
+.top-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.text {
+    width: 70%;
+}
+
+.photo {
+    width: 25%;
+}
+
+.photo img {
+    width: 100%;
+    border-radius: 6px;
+}
+
+/* Typography */
+h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+h2 {
+    font-size: 20px;
+    margin-top: 30px;
+}
+
+/* Links - modern subtle color */
+a {
+    color: #2a6fdb;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* News date */
+.date {
+    color: #888;
+    margin-right: 10px;
+}
+
+/* Divider */
+hr {
+    border: none;
+    border-top: 1px solid #e5e5e5;
+    margin: 25px 0;
+}
+
+/* Slight modern touch */
+strong {
+    color: #111;
+}
